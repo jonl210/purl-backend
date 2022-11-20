@@ -20,23 +20,20 @@ def preview():
         return __process_youtube_link(soup), 200
     elif 'google' in json['url'][:20]:
         return __process_google_link(soup), 200
+    elif 'facebook' in json['url'][:20]:
+        return __process_facebook_link(soup), 200
     elif 'spotify' in json['url'][:20]:
         return __process_spotify_link(soup), 200
     else:
-        return {
-            'title': soup.title.string if soup.title else '',
-            'image': 'image',
-            'icon': __get_favicon(soup)
-        }, 200
+        return __process_default_link(soup), 200
 
-
-## Iterates through all 'link' elements with hrefs and returns the url ending in '.ico'
-def __get_favicon(soup):
-    for link in soup.find_all('link'):
-        if 'rel' in link.attrs and 'icon' in link.attrs['rel']:
-            if link.attrs['href'][-3:].lower() == 'ico':
-                return link.attrs['href']
-
+###### Default #####
+def __process_default_link(soup):
+    return {
+        'title': soup.title.string if soup.title else '',
+        'image': 'image',
+        'icon': __get_favicon(soup)
+    }
 
 ###### Google ######
 def __process_google_link(soup):
@@ -48,31 +45,44 @@ def __process_google_link(soup):
 
 ###### Youtube ######
 def __process_youtube_link(soup):
-    result = {
+    image=__get_og_image(soup)
+    return {
         'title': soup.title.string,
-        'image': __get_youtube_thumbnail(soup),
+        'image': image if image else 'default',
         'icon': __get_favicon(soup)
     }
-    return result
 
-def __get_youtube_thumbnail(soup):
-    result = []
-    for link in soup.find_all('link'):
-        if 'rel' in link.attrs and 'image_src' in link.attrs['rel']:
-            result = link.attrs['href']
-    return result
-
+###### Facebook ######
+def __process_facebook_link(soup):
+    image=__get_og_image(soup)
+    return {
+        'title': soup.title.string,
+        'image': image if image else 'default',
+        'icon': __get_favicon(soup)
+    }
 
 ##### Spotify #####
 def __process_spotify_link(soup):
     # Find spotify album meta
-    image=None
-    for meta in soup.find_all('meta'):
-        if 'property' in meta.attrs and meta.attrs['property'].lower()=='og:image':
-            image=meta.attrs['content']
-    result = {
+    image=__get_og_image(soup)
+    return {
         'title': soup.title.string,
-        'image': image,
+        'image': image if image else 'default',
         'icon': __get_favicon(soup)
     }
-    return result
+
+
+##### Private Helper Functions #####
+
+## Iterates through all 'link' elements with hrefs and returns the url ending in '.ico'
+def __get_favicon(soup):
+    for link in soup.find_all('link'):
+        if 'rel' in link.attrs and 'icon' in link.attrs['rel']:
+            if link.attrs['href'][-3:].lower() == 'ico':
+                return link.attrs['href']
+
+## Gets 'meta' element with 'og:image' property returns 'content' property 
+def __get_og_image(soup):
+    for meta in soup.find_all('meta'):
+        if 'property' in meta.attrs and meta.attrs['property'].lower()=='og:image':
+            return meta.attrs['content']
