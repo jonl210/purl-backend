@@ -16,18 +16,27 @@ def preview():
     except: return
 
     soup = BeautifulSoup(link.text, "html.parser")
-    if 'youtube' in json['url'].replace('.', '')[:20]:
-        return __process_youtube_link(soup), 200
-    elif 'google' in json['url'][:20]:
+
+    og_compatible_sites=['youtube', 'facebook', 'spotify']
+    for site in og_compatible_sites:
+        if site in json['url'].replace('.', '')[:20]:
+            return __process_og_compatible_link(soup)
+
+    if 'google' in json['url'][:20]:
         return __process_google_link(soup), 200
-    elif 'facebook' in json['url'][:20]:
-        return __process_facebook_link(soup), 200
-    elif 'spotify' in json['url'][:20]:
-        return __process_spotify_link(soup), 200
     else:
         return __process_default_link(soup), 200
 
-###### Default #####
+
+###### og Compatible ######
+def __process_og_compatible_link(soup):
+    return {
+        'title': __get_content_for_og('title', soup),
+        'image': __get_content_for_og('image', soup),
+        'icon': __get_favicon(soup)
+    }
+
+###### Default ######
 def __process_default_link(soup):
     return {
         'title': soup.title.string if soup.title else '',
@@ -43,36 +52,7 @@ def __process_google_link(soup):
         'icon': 'https://www.google.com/images/branding/googleg/1x/googleg_standard_color_128dp.png'
     }
 
-###### Youtube ######
-def __process_youtube_link(soup):
-    image=__get_og_image(soup)
-    return {
-        'title': soup.title.string,
-        'image': image if image else 'default',
-        'icon': __get_favicon(soup)
-    }
-
-###### Facebook ######
-def __process_facebook_link(soup):
-    image=__get_og_image(soup)
-    return {
-        'title': soup.title.string,
-        'image': image if image else 'default',
-        'icon': __get_favicon(soup)
-    }
-
-##### Spotify #####
-def __process_spotify_link(soup):
-    # Find spotify album meta
-    image=__get_og_image(soup)
-    return {
-        'title': soup.title.string,
-        'image': image if image else 'default',
-        'icon': __get_favicon(soup)
-    }
-
-
-##### Private Helper Functions #####
+###### Private Helper Functions ######
 
 ## Iterates through all 'link' elements with hrefs and returns the url ending in '.ico'
 def __get_favicon(soup):
@@ -81,8 +61,8 @@ def __get_favicon(soup):
             if link.attrs['href'][-3:].lower() == 'ico':
                 return link.attrs['href']
 
-## Gets 'meta' element with 'og:image' property returns 'content' property 
-def __get_og_image(soup):
+## Searches through 'meta' elements for property matching the og parameter, returns 'content'
+def __get_content_for_og(og, soup):
     for meta in soup.find_all('meta'):
-        if 'property' in meta.attrs and meta.attrs['property'].lower()=='og:image':
+        if 'property' in meta.attrs and meta.attrs['property'].lower()==f'og:{og.lower()}':
             return meta.attrs['content']
